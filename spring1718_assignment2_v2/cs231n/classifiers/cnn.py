@@ -53,7 +53,24 @@ class ThreeLayerConvNet(object):
         # **the width and height of the input are preserved**. Take a look at      #
         # the start of the loss() function to see how that happens.                #                           
         ############################################################################
-        pass
+        # 1st layer = conv
+        self.params['W1'] = weight_scale*np.random.randn( num_filters,input_dim[0],filter_size,filter_size )
+        self.params['b1'] = np.zeros(num_filters)
+        # 2nd layer = affine
+        padd = (filter_size - 1) // 2 # see definition below
+        stride = 1 # see definition below
+        HH = (input_dim[1] + 2*padd - filter_size)//stride + 1
+        WW = (input_dim[2] + 2*padd - filter_size)//stride + 1
+        pool_stride = 2
+        H = (HH - 2)//pool_stride + 1
+        W = (WW - 2)//pool_stride + 1
+        self.params['W2'] = weight_scale*np.random.randn( num_filters*H*W, hidden_dim )
+        self.params['b2'] = np.zeros(hidden_dim)
+        
+        # 3rd layer = output
+        self.params['W3'] = weight_scale*np.random.randn( hidden_dim, num_classes )
+        self.params['b3'] = np.zeros(num_classes)
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -89,7 +106,9 @@ class ThreeLayerConvNet(object):
         # Remember you can use the functions defined in cs231n/fast_layers.py and  #
         # cs231n/layer_utils.py in your implementation (already imported).         #
         ############################################################################
-        pass
+        CRP_out, CRP_cache= conv_relu_pool_forward(X, W1, b1, conv_param, pool_param)
+        AR_out, AR_cache = affine_relu_forward(CRP_out, W2, b2)
+        scores, A_cache  = affine_forward(AR_out, W3, b3)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -108,7 +127,10 @@ class ThreeLayerConvNet(object):
         # automated tests, make sure that your L2 regularization includes a factor #
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
-        pass
+        loss, dout = softmax_loss(scores, y)
+        dout, grads['W3'], grads['b3'] = affine_backward(dout, A_cache)
+        dout, grads['W2'], grads['b2'] = affine_relu_backward(dout, AR_cache)
+        dx, grads['W1'], grads['b1'] = conv_relu_pool_backward(dout, CRP_cache)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################

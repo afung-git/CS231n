@@ -344,7 +344,7 @@ def layernorm_forward(x, gamma, beta, ln_param):
         
     xn = xm/stddev[:,None]
     out = gamma*xn + beta
-    
+
     cache = (gamma, xn, xm, stddev)
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -672,7 +672,10 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # vanilla version of batch normalization you implemented above.           #
     # Your implementation should be very short; ours is less than five lines. #
     ###########################################################################
-    
+    N,C,H,W = x.shape
+    x = (x.transpose(0,2,3,1)).reshape(-1,C) # You have to move the N,H,W ahead of C , aka (samples..., features)
+    out, cache = batchnorm_forward(x, gamma, beta, bn_param)
+    out = (out.reshape(N,H,W,C)).transpose(0,3,1,2) # reshape back to (samples..., features), then transpose
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -702,7 +705,10 @@ def spatial_batchnorm_backward(dout, cache):
     # vanilla version of batch normalization you implemented above.           #
     # Your implementation should be very short; ours is less than five lines. #
     ###########################################################################
-    pass
+    N,C,H,W = dout.shape
+    dout = (dout.transpose(0,2,3,1)).reshape(-1,C)
+    dx, dgamma, dbeta = batchnorm_backward_alt(dout, cache)
+    dx = (dx.reshape(N,H,W,C)).transpose(0,3,1,2)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -738,7 +744,27 @@ def spatial_groupnorm_forward(x, gamma, beta, G, gn_param):
     # the bulk of the code is similar to both train-time batch normalization  #
     # and layer normalization!                                                # 
     ###########################################################################
-    pass
+    N, C, H, W = x.shape
+    chan = C//G
+    
+    out = np.zeros(x.shape)
+    cache = list()
+    
+    gamma = gamma.reshape(C)
+    beta = beta.reshape(C)
+    
+    for i in range(G):
+        temp = x[:,i*chan:(i+1)*chan,:,:]
+        temp = (temp.transpose(0,2,3,1)).reshape(-1,chan)
+
+        temp_gamma = gamma[i*chan:(i+1)*chan]
+        temp_beta = beta[i*chan:(i+1)*chan]
+
+        temp_out, temp_cache = layernorm_forward(temp, temp_gamma, temp_beta, gn_param)
+        out[:,i*chan:(i+1)*chan,:,:] = (temp_out.reshape(N, H, W, chan)).transpose(0,3,1,2)
+        
+        cache.append(temp_cache)
+        
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -764,7 +790,24 @@ def spatial_groupnorm_backward(dout, cache):
     # TODO: Implement the backward pass for spatial group normalization.      #
     # This will be extremely similar to the layer norm implementation.        #
     ###########################################################################
-    pass
+    N,C,H,W = dout.shape
+    G = len(cache)
+    chan = (cache[0][0]).shape[0]
+
+    dx = np.zeros(dout.shape)
+    dgamma = np.zeros(C)
+    dbeta = np.zeros(C)
+    
+    for i in range(G):
+       temp_dout = dout[:,i*chan:(i+1)*chan,:,:]
+       temp_dout = (temp_dout.transpose(0,2,3,1)).reshape(-1,chan)
+       temp_cache = cache[i]
+       temp_dx, temp_gamma, temp_beta = layernorm_backward(temp_dout, temp_cache)
+       dx[:,i*chan:(i+1)*chan,:,:] = (temp_dx.reshape(N,H,W,chan)).transpose(0,3,1,2)
+       dgamma[i*chan:(i+1)*chan] = temp_gamma
+       dbeta[i*chan:(i+1)*chan] = temp_beta
+    dbeta = dbeta.reshape(1,C,1,1)
+    dgamma = dgamma.reshape(1,C,1,1)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
