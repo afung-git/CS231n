@@ -24,7 +24,7 @@ source .env/bin/activate         # Activate the virtual environment
 
 pip install -r requirements.txt  # Install dependencies
 
-# Work on the assignment for a while ...
+Work on the assignment for a while ...
 
 deactivate                       # Exit the virtual environment
 
